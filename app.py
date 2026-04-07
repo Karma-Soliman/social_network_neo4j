@@ -1,6 +1,7 @@
 # social_network.py
 from flask import Flask, render_template, request, jsonify, redirect, url_for, session
 from neo4j import GraphDatabase
+import uuid
 from dataclasses import dataclass
 from typing import List, Optional
 
@@ -36,13 +37,15 @@ class Database:
             )
 
     # User operations
+    def generate_id():
+        return str(uuid.uuid4())
+
     def create_user(self, username: str, name: str) -> int:
-        with self._get_connection() as conn:
-            cursor = conn.cursor()
-            cursor.execute(
-                "INSERT INTO users (username, name) VALUES (?, ?)", (username, name)
-            )
-            return cursor.lastrowid
+        user_id = self.generate_id()
+        query = """ create (u: User {id: $id, username: $username, name: $name })"""
+        with self.driver.session() as session:
+            result = session.run(query, id=user_id, username=username, name=name)
+            return user_id
 
     def get_user(self, user_id: int) -> Optional[dict]:
         with self._get_connection() as conn:
