@@ -80,32 +80,27 @@ class Database:
     def create_post(self, user_id: int, content: str) -> int:
         post_id = self.generate_id()
 
-        query = """ match (u:User {$id: }) create (p: Post {id: $id, username: $username, name: $name})"""
+        query = """ match (u:User {id: $user_id})
+        create (p: Post {id: $post_id, content: $content, timestamp: datetime()})
+        create(u)-[:POSTED]->(p) return p)"""
         with self.driver.session() as session:
-            result = session.run(query, id=user_id, username=username, name=name)
-            return user_id
+            result = session.run(query, id=user_id, post_id=post_id, content=content)
+        return post_id
 
     def get_posts_by_user(self, user_id: int) -> List[dict]:
-        with self._get_connection() as conn:
-            cursor = conn.cursor()
-            cursor.execute(
-                """
-                SELECT p.id, p.content, p.timestamp, u.username, u.name 
-                FROM posts p JOIN users u ON p.user_id = u.id 
-                WHERE p.user_id = ?
-                ORDER BY p.timestamp DESC
-            """,
-                (user_id,),
-            )
+        query = """ match (u:User {id: $user_id})-[:POSTED]->(p:Post)
+        return p, u order by p.timestamp DESC"""
+        with self.driver.session() as session:
+            result = session.run(query, user_id=user_id)
             return [
                 {
-                    "id": row[0],
-                    "content": row[1],
-                    "timestamp": row[2],
-                    "username": row[3],
-                    "name": row[4],
+                    "id": record["u"]["id"],
+                    "content": record["p"]["content"],
+                    "timestamp": record["p"]["timestamp"],
+                    "username": record["u"]["username"],
+                    "name": record["u"]["name"],
                 }
-                for row in cursor.fetchall()
+                for record in result
             ]
 
     def get_feed(self, user_id: int) -> List[dict]:
@@ -124,7 +119,7 @@ class Database:
             )
             return [
                 {
-                    "id": row[0],
+                    "id": row["u"]["id"],
                     "content": row[1],
                     "timestamp": row[2],
                     "username": row[3],
