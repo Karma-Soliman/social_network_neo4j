@@ -82,9 +82,9 @@ class Database:
 
         query = """ match (u:User {id: $user_id})
         create (p: Post {id: $post_id, content: $content, timestamp: datetime()})
-        create (u)-[:POSTED]->(p) return p)"""
+        create (u)-[:POSTED]->(p) return p"""
         with self.driver.session() as session:
-            result = session.run(query, id=user_id, post_id=post_id, content=content)
+            result = session.run(query, user_id=user_id, post_id=post_id, content=content)
         return post_id
 
     def get_posts_by_user(self, user_id: int) -> List[dict]:
@@ -104,40 +104,36 @@ class Database:
             ]
 
     def get_feed(self, user_id: int) -> List[dict]:
-        with self._get_connection() as conn:
-            cursor = conn.cursor()
-            cursor.execute(
-                """
-                SELECT p.id, p.content, p.timestamp, u.username, u.name 
-                FROM posts p 
-                JOIN users u ON p.user_id = u.id
-                JOIN followers f ON p.user_id = f.followee_id
-                WHERE f.follower_id = ?
-                ORDER BY p.timestamp DESC
-            """,
-                (user_id,),
-            )
+        query = """
+        MATCH (u:User {id: $user_id})-[:FOLLOWS]->(f)-[:POSTED]->(p)
+        RETURN p, f
+        ORDER BY p.timestamp DESC
+        """
+
+        with self.driver.session() as session:
+            result = session.run(query, user_id=user_id)
+
             return [
                 {
-                    "id": row["u"]["id"],
-                    "content": row[1],
-                    "timestamp": row[2],
-                    "username": row[3],
-                    "name": row[4],
+                    "id": record["p"]["id"],
+                    "content": record["p"]["content"],
+                    "timestamp": record["p"]["timestamp"],
+                    "username": record["f"]["username"],
+                    "name": record["f"]["name"],
                 }
-                for row in cursor.fetchall()
+                for record in result
             ]
 
     # Follow operations
     def follow_user(self, follower_id: int, followee_id: int) -> bool:
         query = """ match (u1:User {id: $follower_id}), (u2:User {id: $followee_id})
-        merge (u1)-[:FOLLOWS]->(u2))"""
+        merge (u1)-[:FOLLOWS]->(u2)"""
         with self.driver.session() as session:
-            result = session.run(query, follower_idid=follower_id, followee_id=followee_id)
+            result = session.run(query, follower_id=follower_id, followee_id=followee_id)
         return True
 
     def get_followers(self, user_id: int) -> List[dict]:
-        query = """ match (f:User)-[:FOLLOWS]->(u:User {id: $user_id}))"""
+        query = """ match (f:User)-[:FOLLOWS]->(u:User {id: $user_id}) return f"""
         with self.driver.session() as session:
             result = session.run(query, user_id=user_id)
 
@@ -252,7 +248,7 @@ def home():
     return render_template("index.html", users=users, current_user=current_user)
 
 
-@app.route("/user/<int:user_id>")
+@app.route("/user/<user_id>")
 def user_profile(user_id):
     user = db.get_user(user_id)
     if not user:
@@ -283,7 +279,7 @@ def user_profile(user_id):
     )
 
 
-@app.route("/user/<int:user_id>/feed")
+@app.route("/user/<user_id>/feed")
 def user_feed(user_id):
     user = db.get_user(user_id)
     feed = db.get_feed(user_id)
@@ -298,7 +294,7 @@ def create_post():
     return redirect(url_for("user_profile", user_id=user_id))
 
 
-@app.route("/login/<int:user_id>")
+@app.route("/login/<user_id>")
 def login(user_id):
     session["user_id"] = user_id
     return redirect(url_for("home"))
