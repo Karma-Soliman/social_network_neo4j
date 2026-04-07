@@ -77,7 +77,7 @@ class Database:
             ]
 
     # Post operations
-    def create_post(self, user_id: int, content: str) -> int:
+    def create_post(self, user_id: str, content: str) -> int:
         post_id = self.generate_id()
 
         query = """ match (u:User {id: $user_id})
@@ -87,14 +87,14 @@ class Database:
             result = session.run(query, user_id=user_id, post_id=post_id, content=content)
         return post_id
 
-    def get_posts_by_user(self, user_id: int) -> List[dict]:
+    def get_posts_by_user(self, user_id: str) -> List[dict]:
         query = """ match (u:User {id: $user_id})-[:POSTED]->(p:Post)
         return p, u order by p.timestamp DESC"""
         with self.driver.session() as session:
             result = session.run(query, user_id=user_id)
             return [
                 {
-                    "id": record["u"]["id"],
+                    "id": record["p"]["id"],
                     "content": record["p"]["content"],
                     "timestamp": record["p"]["timestamp"],
                     "username": record["u"]["username"],
@@ -103,7 +103,7 @@ class Database:
                 for record in result
             ]
 
-    def get_feed(self, user_id: int) -> List[dict]:
+    def get_feed(self, user_id: str) -> List[dict]:
         query = """
         MATCH (u:User {id: $user_id})-[:FOLLOWS]->(f)-[:POSTED]->(p)
         RETURN p, f
@@ -132,7 +132,7 @@ class Database:
             result = session.run(query, follower_id=follower_id, followee_id=followee_id)
         return True
 
-    def get_followers(self, user_id: int) -> List[dict]:
+    def get_followers(self, user_id: str) -> List[dict]:
         query = """ match (f:User)-[:FOLLOWS]->(u:User {id: $user_id}) return f"""
         with self.driver.session() as session:
             result = session.run(query, user_id=user_id)
@@ -146,7 +146,7 @@ class Database:
                 for record in result
             ]
 
-    def get_following(self, user_id: int) -> List[dict]:
+    def get_following(self, user_id: str) -> List[dict]:
         query = """ match (u:User {id: $user_id})-[:FOLLOWS]->(f:User) return f"""
         with self.driver.session() as session:
             result = session.run(query, user_id=user_id)
