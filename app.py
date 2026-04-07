@@ -77,12 +77,11 @@ class Database:
 
     # Post operations
     def create_post(self, user_id: int, content: str) -> int:
-        with self._get_connection() as conn:
-            cursor = conn.cursor()
-            cursor.execute(
-                "INSERT INTO posts (user_id, content) VALUES (?, ?)", (user_id, content)
-            )
-            return cursor.lastrowid
+        user_id = self.generate_id()
+        query = """ create (u: User {id: $id, username: $username, name: $name})"""
+        with self.driver.session() as session:
+            result = session.run(query, id=user_id, username=username, name=name)
+            return user_id
 
     def get_posts_by_user(self, user_id: int) -> List[dict]:
         with self._get_connection() as conn:
@@ -212,28 +211,28 @@ def api_get_users():
     return jsonify(db.get_all_users())
 
 
-@app.route("/api/users/<int:user_id>", methods=["GET"])
+@app.route("/api/users/<user_id>", methods=["GET"])
 def api_get_user(user_id):
     user = db.get_user(user_id)
     return jsonify(user) if user else ("User not found", 404)
 
 
-@app.route("/api/users/<int:user_id>/posts", methods=["GET"])
+@app.route("/api/users/<user_id>/posts", methods=["GET"])
 def api_get_user_posts(user_id):
     return jsonify(db.get_posts_by_user(user_id))
 
 
-@app.route("/api/users/<int:user_id>/feed", methods=["GET"])
+@app.route("/api/users/<user_id>/feed", methods=["GET"])
 def api_get_user_feed(user_id):
     return jsonify(db.get_feed(user_id))
 
 
-@app.route("/api/users/<int:user_id>/followers", methods=["GET"])
+@app.route("/api/users/<user_id>/followers", methods=["GET"])
 def api_get_user_followers(user_id):
     return jsonify(db.get_followers(user_id))
 
 
-@app.route("/api/users/<int:user_id>/following", methods=["GET"])
+@app.route("/api/users/<user_id>/following", methods=["GET"])
 def api_get_user_following(user_id):
     return jsonify(db.get_following(user_id))
 
