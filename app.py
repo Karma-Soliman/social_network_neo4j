@@ -2,21 +2,22 @@
 from flask import Flask, render_template, request, jsonify, redirect, url_for, session
 from neo4j import GraphDatabase
 import uuid
+import os
+from dotenv import load_dotenv
 from dataclasses import dataclass
 from typing import List, Optional
 
+load_dotenv()
 
 # ======================
 # Database Access Layer
 # ======================
 class Database:
 
-    def __init__(
-        self,
-        uri="neo4j+s://fee92324.databases.neo4j.io",
-        user="fee92324",
-        password="vZkxZgW13kT-Q0c9NT94lrnB3EyKqtJ71HrS5jV17rI",
-    ):
+    def __init__(self):
+        uri = os.getenv("NEO4J_URI")
+        user = os.getenv("NEO4J_USER")
+        password = os.getenv("NEO4J_PASSWORD")
         self.driver = GraphDatabase.driver(uri, auth=(user, password))
         self._init_db()
 
@@ -77,8 +78,9 @@ class Database:
 
     # Post operations
     def create_post(self, user_id: int, content: str) -> int:
-        user_id = self.generate_id()
-        query = """ create (u: User {id: $id, username: $username, name: $name})"""
+        post_id = self.generate_id()
+
+        query = """ match (u:User {$id: }) create (p: Post {id: $id, username: $username, name: $name})"""
         with self.driver.session() as session:
             result = session.run(query, id=user_id, username=username, name=name)
             return user_id
