@@ -165,13 +165,15 @@ class Database:
             ]
 
     def unfollow_user(self, follower_id: int, followee_id: int) -> bool:
-        with self._get_connection() as conn:
-            cursor = conn.cursor()
-            cursor.execute(
-                "DELETE FROM followers WHERE follower_id = ? AND followee_id = ?",
-                (follower_id, followee_id),
-            )
-            return cursor.rowcount > 0
+        query = """
+        MATCH (f1:User {id: $follower_id})-[r:FOLLOWS]->(f2:User {id: $followee_id})
+        DELETE r
+        """
+
+        with self.driver.session() as session:
+            result = session.run(query, follower_id=follower_id, followee_id=followee_id)
+
+        return True
 
 
 # ======================
