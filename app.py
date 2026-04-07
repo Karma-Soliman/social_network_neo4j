@@ -82,7 +82,7 @@ class Database:
 
         query = """ match (u:User {id: $user_id})
         create (p: Post {id: $post_id, content: $content, timestamp: datetime()})
-        create(u)-[:POSTED]->(p) return p)"""
+        create (u)-[:POSTED]->(p) return p)"""
         with self.driver.session() as session:
             result = session.run(query, id=user_id, post_id=post_id, content=content)
         return post_id
@@ -130,15 +130,11 @@ class Database:
 
     # Follow operations
     def follow_user(self, follower_id: int, followee_id: int) -> bool:
-        with self._get_connection() as conn:
-            try:
-                conn.execute(
-                    "INSERT INTO followers (follower_id, followee_id) VALUES (?, ?)",
-                    (follower_id, followee_id),
-                )
-                return True
-            except sqlite3.IntegrityError:
-                return False
+        query = """ match (u1:User {id: $follower_id}), (u2:User {id: $followee_id})
+        merge (u1)-[:FOLLOWS]->(u2))"""
+        with self.driver.session() as session:
+            result = session.run(query, follower_idid=follower_id, followee_id=followee_id)
+        return True
 
     def get_followers(self, user_id: int) -> List[dict]:
         with self._get_connection() as conn:
